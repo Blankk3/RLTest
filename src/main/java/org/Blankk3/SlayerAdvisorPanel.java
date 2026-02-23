@@ -12,24 +12,13 @@ import java.util.stream.Collectors;
 
 public class SlayerAdvisorPanel extends PluginPanel
 {
-    // Data (temporary; JSON later)
-    private final List<String> allTasks = List.of(
-            "Abyssal demons",
-            "Bloodvelds",
-            "Dagannoths",
-            "Dust devils",
-            "Gargoyles",
-            "Greater demons",
-            "Hellhounds",
-            "Nechryael",
-            "Kurasks",
-            "Wyrms"
-    );
+    // Data loaded from resources/tasks.json
+    private final List<TaskInfo> allTasks;
 
     // --------- LIST VIEW (default) ---------
     private final JTextField searchField = new JTextField();
-    private final DefaultListModel<String> resultsModel = new DefaultListModel<>();
-    private final JList<String> resultsList = new JList<>(resultsModel);
+    private final DefaultListModel<TaskInfo> resultsModel = new DefaultListModel<>();
+    private final JList<TaskInfo> resultsList = new JList<>(resultsModel);
 
     // --------- TOP-LEVEL NAV (list <-> detail) ---------
     private final CardLayout mainLayout = new CardLayout();
@@ -43,25 +32,31 @@ public class SlayerAdvisorPanel extends PluginPanel
     private final CardLayout detailCards = new CardLayout();
     private final JPanel detailCardPanel = new JPanel(detailCards);
 
+    private TaskInfo selectedTask;
+
+    // Text areas for each tab
+    private final JTextArea basicArea = new JTextArea();
+    private final JTextArea bringArea = new JTextArea();
+    private final JTextArea dropsArea = new JTextArea();
+    private final JTextArea wikiArea = new JTextArea();
+
     public SlayerAdvisorPanel()
     {
+        allTasks = new TaskRepository().loadTasks();
+
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
-        // Build both pages
         JPanel listView = buildListView();
         JPanel detailView = buildDetailView();
 
-        // Add pages to main card layout
         mainPanel.add(listView, "LIST");
         mainPanel.add(detailView, "DETAIL");
 
         add(mainPanel, BorderLayout.CENTER);
 
-        // Default page
         mainLayout.show(mainPanel, "LIST");
 
-        // Initial list population
         updateResults("");
     }
 
@@ -77,7 +72,23 @@ public class SlayerAdvisorPanel extends PluginPanel
         resultsList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         resultsList.setFixedCellHeight(26);
         resultsList.setFont(resultsList.getFont().deriveFont(13f));
+        resultsList.setCellRenderer((list, value, index, isSelected, cellHasFocus) ->
+        {
+            JLabel label = new JLabel(value == null ? "" : value.getName());
+            label.setOpaque(true);
 
+            if (isSelected)
+            {
+                label.setBackground(list.getSelectionBackground());
+                label.setForeground(list.getSelectionForeground());
+            }
+            else
+            {
+                label.setBackground(list.getBackground());
+                label.setForeground(list.getForeground());
+            }
+            return label;
+        });
         JScrollPane resultsScroll = new JScrollPane(resultsList);
         listView.add(resultsScroll, BorderLayout.CENTER);
 
@@ -102,7 +113,7 @@ public class SlayerAdvisorPanel extends PluginPanel
                 return;
             }
 
-            String selected = resultsList.getSelectedValue();
+            TaskInfo selected = resultsList.getSelectedValue();
             if (selected == null)
             {
                 return;
@@ -112,6 +123,14 @@ public class SlayerAdvisorPanel extends PluginPanel
         });
 
         return listView;
+    }
+
+    private JComponent createTextSection(JTextArea area)
+    {
+        area.setEditable(false);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        return new JScrollPane(area);
     }
 
     private JPanel buildDetailView()
@@ -139,44 +158,21 @@ public class SlayerAdvisorPanel extends PluginPanel
 
         detailView.add(tabBar, BorderLayout.CENTER);
 
-        // Detail cards
-        detailCardPanel.add(createSection(
-                "Basic Information\n\n" +
-                        "Required items: (coming soon)\n" +
-                        "Locations: (coming soon)\n" +
-                        "Slayer masters: (coming soon)\n"
-        ), "BASIC");
-
-        detailCardPanel.add(createSection(
-                "Recommended items to bring\n\n" +
-                        "Suggested utility: (coming soon)\n" +
-                        "Suggested supplies: (coming soon)\n" +
-                        "Suggested equipment extras: (coming soon)\n"
-        ), "BRING");
-
+        // Dynamic tabs (from JSON)
+        detailCardPanel.add(createTextSection(basicArea), "BASIC");
+        detailCardPanel.add(createTextSection(bringArea), "BRING");
         detailCardPanel.add(createSection(
                 "Combat\n\n" +
                         "Monster attack styles: (coming soon)\n" +
                         "Attributes / types: (coming soon)\n" +
                         "Weaknesses: (coming soon)\n"
         ), "COMBAT");
-
-        detailCardPanel.add(createSection(
-                "Drops\n\n" +
-                        "Drop table: (coming soon)\n" +
-                        "Prominent drops: (coming soon)\n"
-        ), "DROPS");
-
+        detailCardPanel.add(createTextSection(dropsArea), "DROPS");
         detailCardPanel.add(createSection(
                 "Gear\n\n" +
                         "Recommended gear sets: (coming soon)\n"
         ), "GEAR");
-
-        detailCardPanel.add(createSection(
-                "Wiki\n\n" +
-                        "Wiki link: (coming soon)\n" +
-                        "Variants: (coming soon)\n"
-        ), "WIKI");
+        detailCardPanel.add(createTextSection(wikiArea), "WIKI");
 
         detailView.add(detailCardPanel, BorderLayout.SOUTH);
 
@@ -194,14 +190,14 @@ public class SlayerAdvisorPanel extends PluginPanel
         return detailView;
     }
 
-    private void showDetailFor(String monsterName)
+    private void showDetailFor(TaskInfo task)
     {
-        headerLabel.setText(monsterName);
+        headerLabel.setText(task.getName());
 
-        // Default to Locations each time
+        // default tab
         detailCards.show(detailCardPanel, "BASIC");
 
-        // Switch to detail page
+        // switch to detail page
         mainLayout.show(mainPanel, "DETAIL");
     }
 
@@ -209,23 +205,24 @@ public class SlayerAdvisorPanel extends PluginPanel
     {
         resultsModel.clear();
 
-        List<String> matches = filterTasks(query);
-        for (String m : matches)
+        List<TaskInfo> matches = filterTasks(query);
+        for (TaskInfo t : matches)
         {
-            resultsModel.addElement(m);
+            resultsModel.addElement(t);
         }
     }
 
-    private List<String> filterTasks(String query)
+    private List<TaskInfo> filterTasks(String query)
     {
         String q = (query == null) ? "" : query.trim().toLowerCase();
+
         if (q.isEmpty())
         {
             return new ArrayList<>(allTasks);
         }
 
         return allTasks.stream()
-                .filter(t -> t.toLowerCase().contains(q))
+                .filter(t -> t.getName() != null && t.getName().toLowerCase().contains(q))
                 .collect(Collectors.toList());
     }
 

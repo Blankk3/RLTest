@@ -1,0 +1,64 @@
+{
+  "tasks": [
+    {
+      "name": "Hellhounds",
+      "locations": [
+        "Taverley Dungeon",
+        "Catacombs of Kourend",
+        "Stronghold Slayer Cave",
+        "Wilderness (various)"
+      ],
+      "slayerMasters": [
+        "Turael",
+        "Mazchna",
+        "Vannaka",
+        "Chaeldar",
+        "Nieve/Steve",
+        "Duradel",
+        "Konar quo Maten"
+      ],
+      "requiredItems": [
+        "None"
+      ],
+      "bringItems": [
+        "Food",
+        "Prayer potions (if praying)",
+        "Teleport out"
+      ],
+      "drops": [
+        "Hard clue scroll (rare)",
+        "Ensouled hellhound head",
+        "Bones",
+        "Various alchables"
+      ],
+      "wiki": "https://oldschool.runescape.wiki/w/Hellhound"
+    },
+
+    {
+      "name": "Gargoyles",
+      "locations": [
+        "Slayer Tower"
+      ],
+      "slayerMasters": [
+        "Vannaka",
+        "Chaeldar",
+        "Nieve/Steve",
+        "Duradel",
+        "Konar quo Maten"
+      ],
+      "requiredItems": [
+        "Rock hammer (required to finish kills)"
+      ],
+      "bringItems": [
+        "High alch runes or Explorer's ring",
+        "Prayer potions (optional)"
+      ],
+      "drops": [
+        "Granite maul (rare)",
+        "Rune items (common alchs)",
+        "Gold ore"
+      ],
+      "wiki": "https://oldschool.runescape.wiki/w/Gargoyle"
+    }
+  ]
+}
