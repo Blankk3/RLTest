@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import net.runelite.client.util.LinkBrowser;
 import java.net.URI;
+import net.runelite.client.game.ItemManager;
+import javax.inject.Inject;
 
 public class SlayerAdvisorPanel extends PluginPanel
 {
@@ -70,6 +72,47 @@ public class SlayerAdvisorPanel extends PluginPanel
         mainLayout.show(mainPanel, "LIST");
 
         updateResults("");
+    }
+
+    @Inject
+    private ItemManager itemManager;
+
+    private int getItemId(String name)
+    {
+        if (name == null || itemManager == null)
+        {
+            return -1;
+        }
+
+        // Removes things like "(required)" or "(optional)"
+        String cleaned = name
+                .replaceAll("\\(.*?\\)", "")     // remove anything in parentheses anywhere
+                .replaceAll("[•\\-]", "")        // remove bullets/dashes if any
+                .trim();
+
+        try
+        {
+            return itemManager.search(cleaned).stream()
+                    .findFirst()
+                    .map(i -> i.getId())
+                    .orElse(-1);
+        }
+        catch (Exception e)
+        {
+            return -1;
+        }
+    }
+
+    private boolean isCategoryRow(String text)
+    {
+        if (text == null) return true;
+        String t = text.toLowerCase();
+        return t.contains("various")
+                || t.contains("alchable")
+                || t.contains("common")
+                || t.contains("notable")
+                || t.contains("rare")
+                || t.contains("drop table");
     }
 
     private JPanel buildListView()
@@ -233,8 +276,8 @@ public class SlayerAdvisorPanel extends PluginPanel
         headerLabel.setText(task.getName());
 
         renderBasicPanel(task);
-        renderListTab(bringPanel, "Recommended items to bring", task.getBringItems());
-        renderListTab(dropsPanel, "Drops", task.getDrops());
+        renderItemTab(bringPanel, "Recommended items to bring", task.getBringItems());
+        renderItemTab(dropsPanel, "Drops", task.getDrops());
         wikiArea.setText(buildWikiText(task));
 
         detailCards.show(detailCardPanel, "BASIC");
@@ -267,16 +310,102 @@ public class SlayerAdvisorPanel extends PluginPanel
 
     private JComponent listRow(String text)
     {
-        JPanel row = new JPanel(new BorderLayout());
+        // ⭐ Step 2 — treat category rows differently
+        if (isCategoryRow(text))
+        {
+            JLabel header = new JLabel(text);
+            header.setFont(header.getFont().deriveFont(Font.ITALIC, 12f));
+
+            JPanel row = new JPanel(new BorderLayout());
+            row.setAlignmentX(Component.LEFT_ALIGNMENT);
+            row.setBorder(BorderFactory.createEmptyBorder(6, 2, 2, 2));
+            row.add(header, BorderLayout.CENTER);
+            return row;
+        }
+
+        JPanel row = new JPanel(new BorderLayout(6, 0));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
 
-        JLabel bullet = new JLabel("• ");
         JLabel label = new JLabel(text);
 
-        row.add(bullet, BorderLayout.WEST);
+        int itemId = getItemId(text);
+
+        if (itemId > 0)
+        {
+            JLabel iconLabel = new JLabel(new ImageIcon(itemManager.getImage(itemId)));
+            row.add(iconLabel, BorderLayout.WEST);
+        }
+        else
+        {
+            row.add(new JLabel("• "), BorderLayout.WEST);
+        }
+
         row.add(label, BorderLayout.CENTER);
 
+        return row;
+    }
+
+    private void renderItemTab(JPanel panel, String title, List<TaskItem> items)
+    {
+        panel.removeAll();
+
+        panel.add(sectionHeader(title));
+        panel.add(Box.createVerticalStrut(6));
+
+        if (items == null || items.isEmpty())
+        {
+            panel.add(new JLabel("• (none)"));
+        }
+        else
+        {
+            for (TaskItem item : items)
+            {
+                panel.add(itemRow(item));
+            }
+        }
+
+        panel.revalidate();
+        panel.repaint();
+    }
+
+    private JComponent itemRow(TaskItem item)
+    {
+        JPanel row = new JPanel(new BorderLayout(6, 0));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
+
+        // --- CATEGORY ROW (no icon, acts like a section label) ---
+        if (item.getCategory() != null)
+        {
+            JLabel category = new JLabel(item.getCategory());
+            category.setFont(category.getFont().deriveFont(Font.BOLD, 12f));
+            row.add(category, BorderLayout.CENTER);
+            return row;
+        }
+
+        String text = item.getName() == null ? "" : item.getName();
+
+        // Append optional note
+        if (item.getNote() != null && !item.getNote().isBlank())
+        {
+            text += " (" + item.getNote() + ")";
+        }
+
+        JLabel label = new JLabel(text);
+
+        // --- ICON FROM ITEM ID ---
+        if (item.getId() != null && item.getId() > 0)
+        {
+            JLabel iconLabel = new JLabel(new ImageIcon(itemManager.getImage(item.getId())));
+            row.add(iconLabel, BorderLayout.WEST);
+        }
+        else
+        {
+            row.add(new JLabel("• "), BorderLayout.WEST);
+        }
+
+        row.add(label, BorderLayout.CENTER);
         return row;
     }
 
@@ -337,19 +466,7 @@ public class SlayerAdvisorPanel extends PluginPanel
                 + "Slayer masters:\n" + formatBullets(task.getSlayerMasters()) + "\n";
     }
 
-    private String buildBringText(TaskInfo task)
-    {
-        return "Recommended items to bring\n\n"
-                + formatBullets(task.getBringItems()) + "\n";
-    }
-
-    private String buildDropsText(TaskInfo task)
-    {
-        return "Drops\n\n"
-                + formatBullets(task.getDrops()) + "\n";
-    }
-
-    private String buildWikiText(TaskInfo task)
+        private String buildWikiText(TaskInfo task)
     {
         String wiki = task.getWiki();
         if (wiki == null || wiki.isBlank())

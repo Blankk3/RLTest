@@ -21,15 +21,14 @@
         "None"
       ],
       "bringItems": [
-        "Food",
-        "Prayer potions (if praying)",
-        "Teleport out"
+        { "name": "Gem bag", "id": 12020 },
+        { "name": "Herb sack", "id": 13226 }
       ],
       "drops": [
-        "Hard clue scroll (rare)",
-        "Ensouled hellhound head",
-        "Bones",
-        "Various alchables"
+        { "name": "Bones", "id": 526 },
+        { "name": "Ensouled hellhound head", "id": 13455 },
+        { "name": "Clue scroll (hard)", "id": 2722, "note": "rare" },
+        { "category": "Various alchables" }
       ],
       "wiki": "https://oldschool.runescape.wiki/w/Hellhound"
     },
@@ -49,14 +48,11 @@
       "requiredItems": [
         "Rock hammer (required to finish kills)"
       ],
-      "bringItems": [
-        "High alch runes or Explorer's ring",
-        "Prayer potions (optional)"
-      ],
+      "bringItems": [],
       "drops": [
-        "Granite maul (rare)",
-        "Rune items (common alchs)",
-        "Gold ore"
+        { "name": "Granite maul", "id": 4153, "note": "rare" },
+        { "category": "Rune items (common alchs)" },
+        { "name": "Gold ore", "id": 444 }
       ],
       "wiki": "https://oldschool.runescape.wiki/w/Gargoyle"
     }

@@ -16,6 +16,7 @@ import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.callback.ClientThread;
 import java.awt.image.BufferedImage;
+import com.google.inject.Injector;
 
 @Slf4j
 @PluginDescriptor(
@@ -25,6 +26,9 @@ public class SlayerAdvisorPlugin extends Plugin
 {
 	@Inject
 	private Client client;
+
+	@Inject
+	private Injector injector;
 
 	@Inject
 	private SlayerAdvisorConfig config;
@@ -43,7 +47,7 @@ public class SlayerAdvisorPlugin extends Plugin
 	{
 		log.debug("Slayer Advisor startUp() ran");
 
-		panel = new SlayerAdvisorPanel();
+		panel = injector.getInstance(SlayerAdvisorPanel.class);
 
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");
 		if (icon == null)
