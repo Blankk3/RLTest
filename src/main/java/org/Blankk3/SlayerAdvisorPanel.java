@@ -9,6 +9,8 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import net.runelite.client.util.LinkBrowser;
+import java.net.URI;
 
 public class SlayerAdvisorPanel extends PluginPanel
 {
@@ -39,6 +41,16 @@ public class SlayerAdvisorPanel extends PluginPanel
     private final JTextArea bringArea = new JTextArea();
     private final JTextArea dropsArea = new JTextArea();
     private final JTextArea wikiArea = new JTextArea();
+
+    private final JButton openWikiButton = new JButton("Open Wiki");
+    private final JPanel wikiPanel = new JPanel(new BorderLayout(0, 8));
+    private final JPanel basicPanel = new JPanel();
+
+    private final JPanel bringPanel = new JPanel();
+    private final JPanel dropsPanel = new JPanel();
+
+    private final JScrollPane bringScroll = new JScrollPane(bringPanel);
+    private final JScrollPane dropsScroll = new JScrollPane(dropsPanel);
 
     public SlayerAdvisorPanel()
     {
@@ -159,20 +171,39 @@ public class SlayerAdvisorPanel extends PluginPanel
         detailView.add(tabBar, BorderLayout.CENTER);
 
         // Dynamic tabs (from JSON)
-        detailCardPanel.add(createTextSection(basicArea), "BASIC");
-        detailCardPanel.add(createTextSection(bringArea), "BRING");
+        basicPanel.setLayout(new BoxLayout(basicPanel, BoxLayout.Y_AXIS));
+        basicPanel.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+        detailCardPanel.add(new JScrollPane(basicPanel), "BASIC");
+        setupListPanel(bringPanel);
+        setupListPanel(dropsPanel);
+
+        detailCardPanel.add(bringScroll, "BRING");
+        detailCardPanel.add(dropsScroll, "DROPS");
         detailCardPanel.add(createSection(
                 "Combat\n\n" +
                         "Monster attack styles: (coming soon)\n" +
                         "Attributes / types: (coming soon)\n" +
                         "Weaknesses: (coming soon)\n"
         ), "COMBAT");
-        detailCardPanel.add(createTextSection(dropsArea), "DROPS");
         detailCardPanel.add(createSection(
                 "Gear\n\n" +
                         "Recommended gear sets: (coming soon)\n"
         ), "GEAR");
-        detailCardPanel.add(createTextSection(wikiArea), "WIKI");
+        // Wiki panel: button + url text area
+        openWikiButton.setFocusable(false);
+        openWikiButton.addActionListener(e ->
+        {
+            if (selectedTask != null && selectedTask.getWiki() != null && !selectedTask.getWiki().isBlank())
+            {
+                LinkBrowser.browse(selectedTask.getWiki());
+            }
+        });
+
+        wikiPanel.removeAll();
+        wikiPanel.add(openWikiButton, BorderLayout.NORTH);
+        wikiPanel.add(createTextSection(wikiArea), BorderLayout.CENTER);
+
+        detailCardPanel.add(wikiPanel, "WIKI");
 
         detailView.add(detailCardPanel, BorderLayout.SOUTH);
 
@@ -190,15 +221,161 @@ public class SlayerAdvisorPanel extends PluginPanel
         return detailView;
     }
 
+    private void setupListPanel(JPanel p)
+    {
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
+    }
+
     private void showDetailFor(TaskInfo task)
     {
+        selectedTask = task;
         headerLabel.setText(task.getName());
 
-        // default tab
-        detailCards.show(detailCardPanel, "BASIC");
+        renderBasicPanel(task);
+        renderListTab(bringPanel, "Recommended items to bring", task.getBringItems());
+        renderListTab(dropsPanel, "Drops", task.getDrops());
+        wikiArea.setText(buildWikiText(task));
 
-        // switch to detail page
+        detailCards.show(detailCardPanel, "BASIC");
         mainLayout.show(mainPanel, "DETAIL");
+    }
+
+    private void renderListTab(JPanel panel, String title, List<String> items)
+    {
+        panel.removeAll();
+
+        panel.add(sectionHeader(title));
+        panel.add(Box.createVerticalStrut(6));
+
+        if (items == null || items.isEmpty())
+        {
+            panel.add(listRow("(none)"));
+        }
+        else
+        {
+            for (String s : items)
+            {
+                if (s == null || s.isBlank()) continue;
+                panel.add(listRow(s));
+            }
+        }
+
+        panel.revalidate();
+        panel.repaint();
+    }
+
+    private JComponent listRow(String text)
+    {
+        JPanel row = new JPanel(new BorderLayout());
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
+
+        JLabel bullet = new JLabel("• ");
+        JLabel label = new JLabel(text);
+
+        row.add(bullet, BorderLayout.WEST);
+        row.add(label, BorderLayout.CENTER);
+
+        return row;
+    }
+
+    private JComponent sectionHeader(String text)
+    {
+        JLabel label = new JLabel(text);
+        label.setFont(label.getFont().deriveFont(Font.BOLD, 13f));
+        label.setBorder(BorderFactory.createEmptyBorder(2, 2, 6, 2));
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return label;
+    }
+
+    private void renderBasicPanel(TaskInfo task)
+    {
+        basicPanel.removeAll();
+
+        basicPanel.add(sectionHeader("Required items"));
+        basicPanel.add(bulletList(task.getRequiredItems()));
+        basicPanel.add(Box.createVerticalStrut(10));
+
+        basicPanel.add(sectionHeader("Locations"));
+        basicPanel.add(bulletList(task.getLocations()));
+        basicPanel.add(Box.createVerticalStrut(10));
+
+        basicPanel.add(sectionHeader("Slayer masters"));
+        basicPanel.add(bulletList(task.getSlayerMasters()));
+
+        basicPanel.revalidate();
+        basicPanel.repaint();
+    }
+
+    private JComponent bulletList(List<String> items)
+    {
+        JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        if (items == null || items.isEmpty())
+        {
+            p.add(new JLabel("• (none)"));
+            return p;
+        }
+
+        for (String s : items)
+        {
+            if (s == null || s.isBlank()) continue;
+            p.add(new JLabel("• " + s));
+        }
+
+        return p;
+    }
+
+    private String buildBasicText(TaskInfo task)
+    {
+        return "Basic Information\n\n"
+                + "Required items:\n" + formatBullets(task.getRequiredItems()) + "\n"
+                + "Locations:\n" + formatBullets(task.getLocations()) + "\n"
+                + "Slayer masters:\n" + formatBullets(task.getSlayerMasters()) + "\n";
+    }
+
+    private String buildBringText(TaskInfo task)
+    {
+        return "Recommended items to bring\n\n"
+                + formatBullets(task.getBringItems()) + "\n";
+    }
+
+    private String buildDropsText(TaskInfo task)
+    {
+        return "Drops\n\n"
+                + formatBullets(task.getDrops()) + "\n";
+    }
+
+    private String buildWikiText(TaskInfo task)
+    {
+        String wiki = task.getWiki();
+        if (wiki == null || wiki.isBlank())
+        {
+            wiki = "(no wiki link provided)";
+        }
+        return "Wiki\n\n" + wiki + "\n";
+    }
+
+    private String formatBullets(List<String> items)
+    {
+        if (items == null || items.isEmpty())
+        {
+            return " - (none)\n";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (String s : items)
+        {
+            if (s == null || s.isBlank())
+            {
+                continue;
+            }
+            sb.append(" - ").append(s).append("\n");
+        }
+        return sb.length() == 0 ? " - (none)\n" : sb.toString();
     }
 
     private void updateResults(String query)
